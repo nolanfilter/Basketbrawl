@@ -56,7 +56,7 @@ public class ScoreAgent : MonoBehaviour {
 			{
 				textStyle.normal.textColor = PlayerAgent.GetPlayerColor( i );
 	
-				GUI.Label( playerScoreRects[ scoresDisplayed ], "" + playerScores[i], textStyle );
+				GUI.Label( playerScoreRects[ scoresDisplayed ], "" + playerScores[i] + "/3", textStyle );
 				
 				scoresDisplayed++;
 			}

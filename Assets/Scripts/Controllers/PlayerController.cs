@@ -7,6 +7,8 @@ public class PlayerController : MonoBehaviour {
 	public GameObject ballSpriteObject;
 	public Animator spriteAnimator;
 
+	public GameObject fistSpriteObject;
+
 	public GameObject tallObject;
 	
 	public GameObject punchObject;
@@ -54,8 +56,8 @@ public class PlayerController : MonoBehaviour {
 
 	private float aimDuration = 1f;
 	
-	private float punchWindUpDuration = 0.1f;
-	private float punchDuration = 0.25f;
+	private float punchWindUpDuration = 0.2f;
+	private float punchDuration = 0.15f;
 	private float punchForce = 10f;
 	private float punchWindDownDuration = 0.1f;
 	private float punchLength = 1.5f;
@@ -77,7 +79,10 @@ public class PlayerController : MonoBehaviour {
 	private float horizontalForce = 2f;
 	
 	private float invulnerabilityDuration = 2f;
-	private float invulnerabilityBeginTime;
+	private bool isInvulnerable = false;
+
+	private Vector3 fistSize = Vector3.one * 2f;
+	private SpriteRenderer[] tallRenderers;
 		
 	void Awake()
 	{
@@ -188,6 +193,13 @@ public class PlayerController : MonoBehaviour {
 			enabled = false;
 			return;
 		}
+
+		if( fistSpriteObject == null )
+		{
+			Debug.LogError( "No fist sprite object on " + tallObject.name );
+			enabled = false;
+			return;
+		}
 	}
 	
 	void Start()
@@ -217,12 +229,12 @@ public class PlayerController : MonoBehaviour {
 		ballObject.renderer.material.color = playerColor;
 		aimSprite.color = playerColor;
 		
-		SpriteRenderer[] spriteRenderers = tallSpriteObject.GetComponentsInChildren<SpriteRenderer>();
+		tallRenderers = tallSpriteObject.GetComponentsInChildren<SpriteRenderer>();
 		
-		for( int i = 0; i < spriteRenderers.Length; i++ )
-			spriteRenderers[i].color = playerColor;
+		for( int i = 0; i < tallRenderers.Length; i++ )
+			tallRenderers[i].color = playerColor;
 		
-		spriteRenderers = ballSpriteObject.GetComponentsInChildren<SpriteRenderer>();
+		SpriteRenderer[] spriteRenderers = ballSpriteObject.GetComponentsInChildren<SpriteRenderer>();
 		
 		for( int i = 0; i < spriteRenderers.Length; i++ )
 			spriteRenderers[i].color = playerColor;
@@ -321,6 +333,9 @@ public class PlayerController : MonoBehaviour {
 			if( currentTransform.position.x < deathBoxCoordinates.x || currentTransform.position.y > deathBoxCoordinates.y || currentTransform.position.y < deathBoxCoordinates.z || currentTransform.position.x > deathBoxCoordinates.w )
 				currentTransform.position = PlayerAgent.GetSpawnPoint( (int)inputController.currentPlayerNumber );
 		}
+
+		if( !isPunching && fistSpriteObject.transform.localScale != fistSize )
+			fistSpriteObject.transform.localScale = fistSize;
 	}
 	
 	private void applyGravity()
@@ -328,7 +343,44 @@ public class PlayerController : MonoBehaviour {
 		if( useGravity && !controller.isGrounded )
 			movementVector += gravityVector * Time.deltaTime;
 	}
-	
+
+	private IEnumerator DoInvulnerability()
+	{
+		isInvulnerable = true;
+
+		float invulnerabilityBeginTime = Time.time;
+		float currentTime;
+
+		int counter = 0;
+
+		Color temp = PlayerAgent.GetPlayerColor( (int)inputController.currentPlayerNumber );
+
+		do
+		{
+			currentTime = Time.time - invulnerabilityBeginTime;
+
+			if( counter%2 == 0 )
+				temp.a = 1f;
+			else
+				temp.a = 0f;
+
+			for( int i = 0; i < tallRenderers.Length; i++ )
+				tallRenderers[i].color = temp;
+
+			counter++;
+
+			yield return null;
+
+		} while( currentTime < invulnerabilityDuration );
+
+		temp.a = 1f;
+
+		for( int i = 0; i < tallRenderers.Length; i++ )
+			tallRenderers[i].color = temp;
+
+		isInvulnerable = false;
+	}
+
 	private IEnumerator DoJump()
 	{		
 		spriteAnimator.SetBool( "Jumping", true );
@@ -457,10 +509,14 @@ public class PlayerController : MonoBehaviour {
 				
 		punchCollider.enabled = false;
 		punchObject.transform.localPosition = Vector3.zero;
-		
-		spriteAnimator.SetBool( "Punching", false );
 
-		yield return new WaitForSeconds( punchWindDownDuration );
+		float punchEndBeginTime = Time.time;
+
+		while (Time.time - punchEndBeginTime < punchWindDownDuration)
+		{
+			spriteAnimator.SetBool( "Punching", false );
+			yield return null;
+		}
 
 		isPunching = false;
 	}
@@ -641,7 +697,7 @@ public class PlayerController : MonoBehaviour {
 
 		tallObject.transform.position = ballObject.transform.position + Vector3.up * 0.55f;
 
-		invulnerabilityBeginTime = Time.time;
+		StartCoroutine( "DoInvulnerability" );
 
 		isPunching = false;
 		useGravity = true;
@@ -652,24 +708,21 @@ public class PlayerController : MonoBehaviour {
 
 	private void internalToBall( Vector3 direction )
 	{
-
-
 		if( currentState == State.Ball )
 		{
 			Push( direction );
 			return;
 		}
 		
-		if( Time.time - invulnerabilityBeginTime < invulnerabilityDuration )
-		{
+		if( isInvulnerable )
 			return;
-		}
 
 		SoundAgent.PlayClip( SoundAgent.SoundEffects.GotHit );
 
 		horizontalVelocity = movementVector.x;
 
 		StopCoroutine( "DoPunch" );
+		isPunching = false;
 		punchCollider.enabled = false;
 		punchObject.transform.localPosition = Vector3.zero;
 

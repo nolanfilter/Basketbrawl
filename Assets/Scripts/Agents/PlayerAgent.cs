@@ -269,6 +269,9 @@ public class PlayerAgent : MonoBehaviour {
 			numPoints += 1f;
 		}
 
+		centroid += new Vector3( 0f, 4f, 0f );
+		numPoints += 1f;
+
 		if( numPoints != 0f )
 			centroid /= numPoints;
 
