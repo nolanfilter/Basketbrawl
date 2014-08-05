@@ -4,6 +4,7 @@ using System.Collections.Generic;
 
 public class PlayerAgent : MonoBehaviour {
 
+	//this is a test
 	public GameObject playerTogglePrefab;
 	public GameObject playerPrefab;
 
